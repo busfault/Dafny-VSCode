@@ -17,6 +17,8 @@ import { NotificationService } from "./notificationService";
 import { InfoMsg } from "./strings/stringRessources";
 import { LanguageServerNotification, LanguageServerRequest } from "./strings/stringRessources";
 
+const MAX_CONNECTION_RETRIES = 30;
+
 const connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 const documents: TextDocuments = new TextDocuments();
 const codeLenses: { [codeLens: string]: ReferencesCodeLens; } = {};
@@ -91,43 +93,20 @@ function verifyAll() {
     }
 }
 
-connection.onRenameRequest((handler: RenameParams): Thenable<WorkspaceEdit> => {
+connection.onRenameRequest((handler: RenameParams): Promise<WorkspaceEdit> => {
     if (provider && provider.renameProvider) {
         return provider.renameProvider.provideRenameEdits(documents.get(handler.textDocument.uri), handler.position, handler.newName);
     }
-    return null; // TODO: This probably never happens, but should be handled differently either way (not thenable)
+    return Promise.reject("The language provider was not ready");
 });
 
-connection.onDefinition((handler: TextDocumentPositionParams): Thenable<Location> => {
+connection.onDefinition((handler: TextDocumentPositionParams): Promise<Location> => {
     if (provider && provider.definitionProvider) {
         return provider.definitionProvider.provideDefinition(documents.get(handler.textDocument.uri), handler.position);
     }
-    return null; // TODO: This probably never happens, but should be handled differently either way (not thenable)
+    return Promise.reject("The language provider was not ready");
 });
 
-const MAX_RETRIES = 30;
-function waitForServer(handler: CodeLensParams) {
-    return new Promise(async (resolve, reject) => {
-        let tries = 0;
-        while (!(provider && provider.referenceProvider) && tries < MAX_RETRIES) {
-            await sleep(2000);
-            tries++;
-        }
-        if ((provider && provider.referenceProvider)) {
-            resolve();
-        } else {
-            reject();
-        }
-    }).then(() => {
-        const result = provider.referenceProvider.provideCodeLenses(documents.get(handler.textDocument.uri));
-        result.then((lenses: ReferencesCodeLens[]) => {
-            lenses.forEach((lens: ReferencesCodeLens) => {
-                codeLenses[JSON.stringify(getCodeLens(lens))] = lens;
-            });
-        });
-        return result;
-    });
-}
 
 function getCodeLens(referenceCodeLens: ReferencesCodeLens): CodeLens {
     return { command: referenceCodeLens.command, data: referenceCodeLens.data, range: referenceCodeLens.range };
@@ -137,32 +116,33 @@ function sleep(ms: number) {
     return new Promise((resolve: any) => setTimeout(resolve, ms));
 }
 
-connection.onCodeLens((handler: CodeLensParams): Promise<ReferencesCodeLens[]> => {
-
-    if (provider && provider.referenceProvider) {
-        const result = provider.referenceProvider.provideCodeLenses(documents.get(handler.textDocument.uri));
-        result.then((lenses: ReferencesCodeLens[]) => {
-            lenses.forEach((lens: ReferencesCodeLens) => {
-                codeLenses[JSON.stringify(getCodeLens(lens))] = lens;
-            });
-        });
-        return result;
-    } else {
-        return waitForServer(handler);
+connection.onCodeLens(async (handler: CodeLensParams): Promise<ReferencesCodeLens[]> => {
+    let tries = 0;
+    while (!(provider && provider.referenceProvider) && tries < MAX_CONNECTION_RETRIES) {
+        await sleep(2000);
+        tries++;
     }
+    if (!(provider && provider.referenceProvider)) {
+        return Promise.reject("The language provider is not (yet) ready.");
+    }
+
+    const lenses = await provider.referenceProvider.provideCodeLenses(documents.get(handler.textDocument.uri));
+    lenses.forEach((lens: ReferencesCodeLens) => {
+        codeLenses[JSON.stringify(getCodeLens(lens))] = lens;
+    });
+    return lenses;
 });
 
 connection.onCodeLensResolve((handler: CodeLens): Promise<CodeLens> => {
-
     if (provider && provider.referenceProvider) {
         const item = codeLenses[JSON.stringify(handler)];
-        if (item !== null && item as ReferencesCodeLens) {
+        if (item) {
             return provider.referenceProvider.resolveCodeLens(item);
         } else {
-            console.error("key not found ");
+            console.error(`Codelens key for range ${handler.range} not found`);
         }
     }
-    return null; // TODO: This probably never happens, but should be handled differently either way (not thenable)
+    return Promise.reject("The language provider is not (yet) ready.");
 });
 
 interface ISettings {
@@ -181,40 +161,34 @@ connection.onDidCloseTextDocument((handler) => {
     connection.sendDiagnostics({ diagnostics: [], uri: handler.textDocument.uri });
 });
 
-connection.onRequest<CompilerResult, void>(LanguageServerRequest.Compile, (uri: Uri): Thenable<CompilerResult> => {
+connection.onRequest<CompilerResult, void>(LanguageServerRequest.Compile, (uri: Uri): Promise<CompilerResult> => {
     if (provider && provider.compiler) {
         return provider.compiler.compile(uri);
     }
-    return null; // TODO: This probably never happens, but should be handled differently either way (not thenable)
+    return Promise.reject("The language provider is not (yet) ready.");
 });
 
-connection.onRequest<void, void>(LanguageServerRequest.Dotgraph, (json: string): Thenable<void> => {
+connection.onRequest<void, void>(LanguageServerRequest.Dotgraph, (json: string): Promise<void> => {
     const textDocumentItem: TextDocumentItem = JSON.parse(json);
     const textDocument: TextDocument = TextDocument.create(textDocumentItem.uri, textDocumentItem.languageId,
         textDocumentItem.version, textDocumentItem.text);
     if (provider) {
         return provider.dotGraph(textDocument);
     }
-    return null;
+    return Promise.reject("The language provider is not (yet) ready.");
 });
 
 connection.onRequest<string, void>(LanguageServerRequest.Install, () => {
     return new Promise<string>(async (resolve, reject) => {
-        uninstallDafny().then(() => {
-            if (dafnyInstaller) {
-                dafnyInstaller.install().then((basePath) => {
-                    settings.dafny.basePath = basePath;
-                    verifyDependencies();
-                    resolve(basePath);
-                }).catch((e) => {
-                    console.error("errrroooorrr: " + e);
-                });
-            } else {
-                reject();
-            }
-        }).catch((e) => {
-            reject(e);
-        });
+        await uninstallDafny();
+        if (dafnyInstaller) {
+            const basePath = await dafnyInstaller.install();
+            settings.dafny.basePath = basePath;
+            verifyDependencies();
+            resolve(basePath);
+        } else {
+            reject();
+        }
     });
 });
 
@@ -229,7 +203,7 @@ function uninstallDafny(): Promise<void> {
             provider.stop();
             await sleep(1000);
             let tries = 0;
-            while (provider && provider.dafnyServer.isRunning() && tries < MAX_RETRIES) {
+            while (provider && provider.dafnyServer.isRunning() && tries < MAX_CONNECTION_RETRIES) {
                 await sleep(1000);
                 tries++;
             }
@@ -277,14 +251,14 @@ connection.onCodeAction((params: CodeActionParams) => {
     if (provider && provider.codeActionProvider) {
         return provider.codeActionProvider.provideCodeAction(params);
     }
-    return null; // TODO: This probably never happens, but should be handled differently either way (not thenable)
+    return Promise.resolve([]);
 });
 
 connection.onCompletion((handler: TextDocumentPositionParams) => {
     if (provider && provider.completionProvider) {
         return provider.completionProvider.provideCompletion(handler);
     }
-    return null; // TODO: This probably never happens, but should be handled differently either way (not thenable)
+    return Promise.resolve([]);
 });
 
 connection.listen();

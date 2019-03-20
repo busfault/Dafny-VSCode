@@ -8,14 +8,14 @@ import { EnvironmentConfig, LanguageServerNotification, StatusString } from "./s
 import { VerificationResult } from "./verificationResult";
 
 export class Statusbar {
-    public serverStatus: string;
+    public serverStatus: string | undefined;
     public queueSize: number = 0;
-    public serverpid: number;
-    public serverversion: string;
-    public activeDocument: vscode.Uri;
-    private serverStatusBar: vscode.StatusBarItem = null;
-    private progressBar: vscode.StatusBarItem = null;
-    private currentDocumentStatucBar: vscode.StatusBarItem = null;
+    public serverpid: number | undefined;
+    public serverversion: string | undefined;
+    public activeDocument: vscode.Uri | undefined;
+    private serverStatusBar: vscode.StatusBarItem;
+    private progressBar: vscode.StatusBarItem;
+    private currentDocumentStatucBar: vscode.StatusBarItem;
 
     constructor(languageServer: LanguageClient, private context: Context) {
         this.currentDocumentStatucBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, StatusbarPriority.high);
@@ -77,14 +77,14 @@ export class Statusbar {
     }
 
     public update(): void {
-        const editor: vscode.TextEditor = vscode.window.activeTextEditor;
+        const editor = vscode.window.activeTextEditor;
         const editorsOpen: number = vscode.window.visibleTextEditors.length;
         if (!editor || editorsOpen === 0 || editor.document.languageId !== EnvironmentConfig.Dafny) {
             this.hide();
             return;
         }
 
-        if (this.serverpid) {
+        if (this.serverpid && this.serverversion) {
             this.serverStatusBar.text = `${StatusString.ServerUp} | ${this.serverStatus} | Queue: ${this.queueSize}`;
             this.serverStatusBar.tooltip = `Dafny Version ${this.serverversion.trim()} | Dafny PID ${this.serverpid}`;
 

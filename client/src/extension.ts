@@ -12,7 +12,7 @@ import { EnvironmentConfig, ErrorMsg, LanguageServerNotification, WarningMsg } f
 import Commands from "./ui/commands";
 import Notifications from "./ui/notifications";
 
-let languageServer: LanguageClient = null;
+let languageServer: LanguageClient;
 let provider: DafnyClientProvider;
 const runner: DafnyRunner = new DafnyRunner();
 

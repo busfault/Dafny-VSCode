@@ -11,7 +11,7 @@ import { Context } from "../src/context";
 import { VerificationResult } from "../src/verificationResult";
 
 const extensionID = "correctnessLab.dafny-vscode";
-const samplesFolder = vscode.extensions.getExtension(extensionID).extensionPath + "/test/sampleFolder/";
+const samplesFolder = vscode.extensions.getExtension(extensionID)!.extensionPath + "/test/sampleFolder/";
 
 export class UnitTestCallback {
     // tslint:disable-next-line:no-empty

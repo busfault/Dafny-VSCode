@@ -76,12 +76,12 @@ export class DafnyServerProvider {
     }
 
     public dotGraph(textDocument: TextDocument): Promise<void> {
-        if (textDocument !== null && textDocument.languageId === EnvironmentConfig.Dafny) {
+        if (textDocument && textDocument.languageId === EnvironmentConfig.Dafny) {
             return new Promise<void>((resolve, reject) => {
                 this.dafnyServer.addDocument(textDocument, "dotgraph", resolve, reject);
             });
         } else {
-            return null;
+            return Promise.reject("No document to plot available");
         }
     }
 }

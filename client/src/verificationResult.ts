@@ -6,10 +6,10 @@ export enum VerificationStatus {
     Failed = 2,
 }
 
-export class VerificationResult {
-    public verificationStatus: VerificationStatus;
-    public proofObligations: number;
-    public errorCount: number;
-    public crashed: boolean = false;
-    public counterModel: any;
+export interface VerificationResult {
+    verificationStatus: VerificationStatus;
+    proofObligations: number;
+    errorCount: number;
+    crashed: boolean;
+    counterModel: any;
 }

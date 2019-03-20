@@ -1,5 +1,5 @@
-export class CompilerResult {
-    public error: boolean;
-    public message?: string;
-    public executable?: boolean;
+export interface CompilerResult {
+    error: boolean;
+    message?: string;
+    executable?: boolean;
 }

@@ -27,7 +27,7 @@ export class DafnyServer {
     public symbolService: SymbolService;
     private MAX_RETRIES: number = 5;
     private active: boolean = false;
-    private serverProc: ProcessWrapper;
+    private serverProc: ProcessWrapper | null = null;
     private restart: boolean = true;
     private retries: number = 0;
     constructor(private notificationService: NotificationService, private statusbar: Statusbar,
@@ -37,7 +37,7 @@ export class DafnyServer {
 
     public reset(): boolean {
         if (this.isRunning()) {
-            this.serverProc.killServerProc();
+            this.serverProc!.killServerProc();
             this.serverProc = null;
         }
         this.context.clear();
@@ -63,11 +63,11 @@ export class DafnyServer {
     }
 
     public isRunning(): boolean {
-        return this.serverProc && this.serverProc.isAlive();
+        return !!this.serverProc && this.serverProc.isAlive();
     }
 
     public pid(): number {
-        return this.isRunning() ? this.serverProc.pid : -1;
+        return this.isRunning() ? this.serverProc!.pid : -1;
     }
 
     public addDocument(doc: vscode.TextDocument, verb: string, callback?: ((data: any) => any), error?: ((data: any) => any)): void {
@@ -204,8 +204,8 @@ export class DafnyServer {
         };
         const encoded: string = encodeBase64(task);
         if (this.isRunning()) {
-            this.serverProc.clearBuffer();
-            this.serverProc.sendRequestToDafnyServer(encoded, request.verb);
+            this.serverProc!.clearBuffer();
+            this.serverProc!.sendRequestToDafnyServer(encoded, request.verb);
         }
         this.notificationService.sendActiveVerifiyingDocument(request.document.uri);
         request.timeSent = Date.now();
@@ -213,9 +213,9 @@ export class DafnyServer {
 
     private sendNextRequest(): void {
         if (!this.active && (this.context.activeRequest === null)) {
-            if (this.context.queue.peek() != null) {
+            const request = this.context.queue.dequeue();
+            if (request) {
                 this.active = true;
-                const request: VerificationRequest = this.context.queue.dequeue();
                 this.notificationService.sendQueueSize(this.context.queue.size());
                 this.context.activeRequest = request;
                 this.sendVerificationRequest(request);

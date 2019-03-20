@@ -48,18 +48,20 @@ export class SymbolService {
         });
     }
 
-    public getSymbolsFromDafny(document: TextDocument): Promise<SymbolTable> {
+    public async getSymbolsFromDafny(document: TextDocument): Promise<SymbolTable> {
         if (!document) {
             return Promise.resolve(null);
         }
-        return new Promise<any>((resolve, reject) => {
+        try {
+            const symbols = await new Promise<any>((resolve, reject) => {
                 return this.askDafnyForSymbols(resolve, reject, document);
-        }).then((symbols: any) => {
+            });
             return Promise.resolve(this.parseSymbols(symbols, document));
-        }, (err: Error) => {
+        }
+        catch (err) {
             console.error(err);
             return Promise.resolve(null);
-        });
+        }
     }
 
     private getAllCachedExcept(uri: string): SymbolTable[] {
@@ -71,17 +73,17 @@ export class SymbolService {
         }
         return symbolTables;
     }
-    private loadSymbols(doc: TextDocument, symbolTables: SymbolTable[], symbols: SymbolTable): Promise<SymbolTable[]> {
-        return this.getSymbolsFromDafny(doc).then((symb: SymbolTable) => {
-            if (symb.symbols.length >  0) {
-                symb.hash = hashString(doc.getText());
-                this.addSymbols(doc, symb, true);
-                symbolTables.push(symb);
-            } else if (symbols) {
-                symbolTables.push(symbols);
-            }
-            return Promise.resolve(symbolTables);
-        });
+    private async loadSymbols(doc: TextDocument, symbolTables: SymbolTable[], symbols: SymbolTable): Promise<SymbolTable[]> {
+        const symb = await this.getSymbolsFromDafny(doc);
+        if (symb.symbols.length > 0) {
+            symb.hash = hashString(doc.getText());
+            this.addSymbols(doc, symb, true);
+            symbolTables.push(symb);
+        }
+        else if (symbols) {
+            symbolTables.push(symbols);
+        }
+        return Promise.resolve(symbolTables);
     }
     private parseSymbols(response: any, document: TextDocument): SymbolTable {
         const symbolTable = new SymbolTable(document.uri);

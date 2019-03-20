@@ -9,7 +9,8 @@ export class CounterModelProvider {
     constructor(private context: Context) { }
 
     public update() {
-        const editor: vscode.TextEditor = vscode.window.activeTextEditor;
+        // TODO: Refactor editor window out and check for existance
+        const editor: vscode.TextEditor = vscode.window.activeTextEditor!;
 
         const res: undefined | VerificationResult = this.context.verificationResults[editor.document.uri.toString()];
 
@@ -42,11 +43,11 @@ export class CounterModelProvider {
                 },
             });
             this.context.decorators[editor.document.uri.toString()] = variableDisplay;
-            vscode.window.activeTextEditor.setDecorations(variableDisplay, decorators);
+            editor.setDecorations(variableDisplay, decorators);
         }
     }
 
-    private createDecorator(state: any): vscode.DecorationOptions {
+    private createDecorator(state: any): vscode.DecorationOptions | null {
 
         const line = state.Line - 1;
         if (line < 0) { return null; }

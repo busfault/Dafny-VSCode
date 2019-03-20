@@ -8,7 +8,7 @@ import { VerificationResults } from "./verificationResults";
 export class Context {
     public queue: Collections.Queue<VerificationRequest> = new Collections.Queue<VerificationRequest>();
     public verificationResults: VerificationResults;
-    public activeRequest: VerificationRequest = null;
+    public activeRequest: VerificationRequest;
     public serverpid: number;
     public rootPath: string;
     public serverversion: string;

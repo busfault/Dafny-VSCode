@@ -10,17 +10,18 @@ export class DafnyDefinitionProvider {
 
     public constructor(public server: DafnyServer) { }
 
-    public provideDefinition(document: vscode.TextDocument, position: vscode.Position):
-        Thenable<vscode.Location> {
-        return this.provideDefinitionInternal(document, position).then((definitionInfo: DafnyDefinitionInformation) => {
+    public async provideDefinition(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Location> {
+        try {
+            const definitionInfo = await this.provideDefinitionInternal(document, position);
             if (definitionInfo == null || definitionInfo.symbol == null) {
                 return null;
             }
             return vscode.Location.create(definitionInfo.filePath, definitionInfo.symbol.range);
-        }, (err) => {
+        }
+        catch (err) {
             console.error(err);
             return null;
-        });
+        }
     }
 
     public provideDefinitionInternal(document: vscode.TextDocument, position: vscode.Position): Promise<DafnyDefinitionInformation> {
