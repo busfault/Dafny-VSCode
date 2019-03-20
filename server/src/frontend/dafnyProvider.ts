@@ -22,7 +22,7 @@ export class DafnyServerProvider {
     public compiler: DafnyCompiler;
     public dafnyServer: DafnyServer;
 
-    private subscriptions: Disposable[];
+    private subscriptions: Disposable[] = [];
     private dafnyStatusbar: Statusbar;
     private context: Context;
 

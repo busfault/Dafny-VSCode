@@ -4,7 +4,7 @@ import { IConnection, PublishDiagnosticsParams } from "vscode-languageserver";
 import { LanguageServerNotification } from "./strings/stringRessources";
 
 export class NotificationService {
-    private lastProgress: number;
+    private lastProgress: number = 0;
     constructor(private connection: IConnection) { }
 
     public sendError(message: string): void {

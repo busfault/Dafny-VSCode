@@ -107,7 +107,6 @@ connection.onDefinition((handler: TextDocumentPositionParams): Promise<Location>
     return Promise.reject("The language provider was not ready");
 });
 
-
 function getCodeLens(referenceCodeLens: ReferencesCodeLens): CodeLens {
     return { command: referenceCodeLens.command, data: referenceCodeLens.data, range: referenceCodeLens.range };
 }
