@@ -60,7 +60,7 @@ export default class Commands {
                 if (!vscode.window.activeTextEditor) {
                     return; // The window was closed before compilation was executed
                 }
-                this.compile(vscode.window.activeTextEditor.document, true);
+                return this.compile(vscode.window.activeTextEditor.document, true);
             },
         },
         {
