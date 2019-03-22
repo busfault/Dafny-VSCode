@@ -8,20 +8,18 @@ import { VerificationResults } from "./verificationResults";
 export class Context {
     public queue: Collections.Queue<VerificationRequest> = new Collections.Queue<VerificationRequest>();
     public verificationResults: VerificationResults;
-    public activeRequest: VerificationRequest;
-    public serverpid: number;
-    public rootPath: string;
-    public serverversion: string;
+    public activeRequest: VerificationRequest | undefined;
+    public serverpid: number | undefined;
     public symbolTable: { [fileName: string]: any } = {};
 
-    constructor(public notificationService: NotificationService) {
+    constructor(public notificationService: NotificationService, public serverversion: string, public rootPath: string) {
         this.verificationResults = new VerificationResults(this.notificationService);
     }
 
     public clear(): void {
         this.queue.clear();
-        this.activeRequest = null;
-        this.serverpid = null;
+        this.activeRequest = undefined;
+        this.serverpid = undefined;
     }
 
     public addSymbols(fileName: string, symbols: any) {
@@ -36,6 +34,10 @@ export class Context {
     }
 
     public collectRequest(serverReturn: string): VerificationResult {
+        if (!this.activeRequest) {
+            throw new Error("Collect Request was called outside of a active request!");
+        }
+
         this.activeRequest.timeFinished = Date.now();
         const result = this.verificationResults.collect(serverReturn, this.activeRequest);
         return result;

@@ -43,7 +43,7 @@ export class NotificationService {
         this.connection.sendNotification(LanguageServerNotification.ChangeServerStatus, status);
     }
 
-    public sendActiveVerifiyingDocument(document: string): void {
+    public sendActiveVerifiyingDocument(document: string | null): void {
         this.connection.sendNotification(LanguageServerNotification.ActiveVerifiyingDocument, document);
     }
 

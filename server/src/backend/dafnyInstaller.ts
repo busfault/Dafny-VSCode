@@ -31,7 +31,7 @@ export class DafnyInstaller {
                     console.log("Remote:" + latestVersionSemVer[0]);
                     return semver.gte(localVersionSemVer[0], latestVersionSemVer[0]);
                 } else {
-                    console.log("can't parse version numbers");
+                    console.log("Can't parse version numbers");
                     return Promise.reject(false);
                 }
             } else {

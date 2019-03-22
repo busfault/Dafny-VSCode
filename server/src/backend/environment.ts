@@ -99,7 +99,7 @@ export class Environment {
                 monoPath = EnvironmentConfig.Mono;
             } else if (!monoInSystemPath && !monoAtConfigPath) {
                 this.notificationService.sendError(ErrorMsg.NoMono);
-                const command: Command = new Command();
+                const command: Command = new Command("");
                 command.notFound = true;
                 return command;
             }

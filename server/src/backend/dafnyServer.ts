@@ -106,33 +106,37 @@ export class DafnyServer {
     }
 
     private handleProcessError(err: Error): void {
-        this.notificationService.sendError("DafnyServer process " + this.serverProc.pid + " error: " + err);
+        this.notificationService.sendError(`DafnyServer process ${this.serverProc!.pid} error: ${err}`); // this function is called from serverProc instance.
         console.error("dafny server stdout error:" + err.message);
-        this.context.activeRequest.error(err);
+        if (this.context.activeRequest && this.context.activeRequest.error) {
+            this.context.activeRequest.error(err);
+        }
 
         this.statusbar.changeServerStatus(StatusString.Idle);
         this.active = false;
-        this.context.activeRequest = null;
+        this.context.activeRequest = undefined;
         this.sendNextRequest();
     }
 
     private handleProcessData(): void {
-        if (this.isRunning() && this.serverProc.commandFinished()) {
-            const log: string = this.serverProc.outBuf.substr(0, this.serverProc.positionCommandEnd());
+        if (this.isRunning() && this.serverProc!.commandFinished()) {
+            const log: string = this.serverProc!.outBuf.substr(0, this.serverProc!.positionCommandEnd());
             if (this.context.activeRequest && (this.context.activeRequest.verb === DafnyVerbs.CounterExample
                 || this.context.activeRequest.verb === DafnyVerbs.Verify)) {
                 const result = this.context.collectRequest(log);
                 this.notificationService.sendVerificationResult([this.context.activeRequest.document.uri.toString(),
                 JSON.stringify(result)]);
-                this.context.activeRequest = null;
+                this.context.activeRequest = undefined;
             } else if (this.context.activeRequest) {
-                this.context.activeRequest.callback(log);
-                this.context.activeRequest = null;
+                if (this.context.activeRequest.callback) {
+                    this.context.activeRequest.callback(log);
+                }
+                this.context.activeRequest = undefined;
             } else {
                 console.error("active request was null");
             }
 
-            this.serverProc.clearBuffer();
+            this.serverProc!.clearBuffer();
             this.statusbar.changeServerStatus(StatusString.Idle);
             this.notificationService.sendActiveVerifiyingDocument(null);
             this.active = false;
@@ -143,7 +147,7 @@ export class DafnyServer {
     private handleProcessExit() {
         this.serverProc = null;
         this.notificationService.sendError(ErrorMsg.DafnyServerRestart);
-        if (this.context != null) {
+        if (this.context.activeRequest) {
             const crashedRequest: VerificationRequest = this.context.activeRequest;
             this.context.clear();
             this.context.addCrashedRequest(crashedRequest);

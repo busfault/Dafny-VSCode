@@ -16,7 +16,7 @@ export class CodeActionProvider {
                 return this.getCodeActions(e, params);
             });
 
-            const command = codeActions.reduceRight(async(collectorPromise, nextPromise) => {
+            const command = codeActions.reduceRight(async (collectorPromise, nextPromise) => {
                 const collectorCommands = await collectorPromise;
                 const nextCommands = await nextPromise;
                 return collectorCommands.concat(nextCommands);

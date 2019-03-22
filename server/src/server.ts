@@ -1,5 +1,6 @@
 "use strict";
 
+import { log } from "util";
 import {
     CodeActionParams, CodeLens, CodeLensParams,
     createConnection, IConnection, InitializeResult, IPCMessageReader,
@@ -7,11 +8,11 @@ import {
     TextDocumentItem, TextDocumentPositionParams, TextDocuments, WorkspaceEdit,
 } from "vscode-languageserver";
 import Uri from "vscode-uri";
-import { CompilerResult } from "./backend/CompilerResult";
 import { DafnyInstaller } from "./backend/dafnyInstaller";
 import { IDafnySettings } from "./backend/dafnySettings";
 import { DependencyVerifier } from "./backend/dependencyVerifier";
 import { ReferencesCodeLens } from "./backend/features/codeLenses";
+import { ICompilerResult } from "./backend/ICompilerResult";
 import { DafnyServerProvider } from "./frontend/dafnyProvider";
 import { NotificationService } from "./notificationService";
 import { InfoMsg } from "./strings/stringRessources";
@@ -22,18 +23,18 @@ const MAX_CONNECTION_RETRIES = 30;
 const connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 const documents: TextDocuments = new TextDocuments();
 const codeLenses: { [codeLens: string]: ReferencesCodeLens; } = {};
-let settings: ISettings = null;
+let settings: ISettings;
 let started: boolean = false;
-let notificationService: NotificationService = null;
-let dafnyInstaller: DafnyInstaller = null;
+let notificationService: NotificationService;
+let dafnyInstaller: DafnyInstaller;
 
 documents.listen(connection);
 
 let workspaceRoot: string;
-let provider: DafnyServerProvider = null;
+let provider: DafnyServerProvider;
 
 connection.onInitialize((params): InitializeResult => {
-    workspaceRoot = params.rootPath;
+    workspaceRoot = params.rootPath!; // TODO: This line is probably the main reason why only workspaces can be opened.
     notificationService = new NotificationService(connection);
     return {
         capabilities: {
@@ -51,18 +52,23 @@ connection.onInitialize((params): InitializeResult => {
 });
 
 function verifyDependencies() {
-    const dependencyVerifier: DependencyVerifier = new DependencyVerifier();
     dafnyInstaller = new DafnyInstaller(notificationService);
-    dependencyVerifier.verifyDafnyServer(workspaceRoot, notificationService, settings.dafny, (serverVersion: string) => {
+    DependencyVerifier.verifyDafnyServer(workspaceRoot, notificationService, settings.dafny)
+    .then((serverVersion: string) => {
         init(serverVersion);
-        dafnyInstaller.latestVersionInstalled(serverVersion).then((latest) => {
+        dafnyInstaller.latestVersionInstalled(serverVersion)
+        .then((latest) => {
             if (!latest) {
                 connection.sendNotification(LanguageServerNotification.DafnyMissing, InfoMsg.DafnyUpdateAvailable);
             }
-        }).catch(() => {
-            console.error("can't access github");
+        })
+        .catch((e) => {
+            log(e);
+            console.error(`Can't check for new dafny version, error message: ${e}`);
         });
-    }, () => {
+    })
+    .catch((e) => {
+        log(e);
         connection.sendNotification(LanguageServerNotification.DafnyMissing, InfoMsg.AskInstallDafny);
     });
 }
@@ -93,16 +99,24 @@ function verifyAll() {
     }
 }
 
-connection.onRenameRequest((handler: RenameParams): Promise<WorkspaceEdit> => {
+connection.onRenameRequest(async (handler: RenameParams): Promise<WorkspaceEdit> => {
     if (provider && provider.renameProvider) {
-        return provider.renameProvider.provideRenameEdits(documents.get(handler.textDocument.uri), handler.position, handler.newName);
+        const workspaceEdit = await provider.renameProvider.provideRenameEdits(documents.get(handler.textDocument.uri), handler.position, handler.newName);
+        if (workspaceEdit === null) {
+            throw new Error(`Could not prepare a workspace edit for the rename to ${handler.newName} / position ${handler.position}`);
+        }
+        return workspaceEdit;
     }
     return Promise.reject("The language provider was not ready");
 });
 
-connection.onDefinition((handler: TextDocumentPositionParams): Promise<Location> => {
+connection.onDefinition(async (handler: TextDocumentPositionParams): Promise<Location> => {
     if (provider && provider.definitionProvider) {
-        return provider.definitionProvider.provideDefinition(documents.get(handler.textDocument.uri), handler.position);
+        const newLocal = await provider.definitionProvider.provideDefinition(documents.get(handler.textDocument.uri), handler.position);
+        if (newLocal === null) {
+            throw new Error(`Could not find definition of ${handler.position}`);
+        }
+        return newLocal;
     }
     return Promise.reject("The language provider was not ready");
 });
@@ -132,11 +146,15 @@ connection.onCodeLens(async (handler: CodeLensParams): Promise<ReferencesCodeLen
     return lenses;
 });
 
-connection.onCodeLensResolve((handler: CodeLens): Promise<CodeLens> => {
+connection.onCodeLensResolve(async (handler: CodeLens): Promise<CodeLens> => {
     if (provider && provider.referenceProvider) {
         const item = codeLenses[JSON.stringify(handler)];
         if (item) {
-            return provider.referenceProvider.resolveCodeLens(item);
+            const newLocal = await provider.referenceProvider.resolveCodeLens(item);
+            if (newLocal === null) {
+                throw new Error(`Could not resolve CodeLens for ${handler.range} / item ${item}`);
+            }
+            return newLocal;
         } else {
             console.error(`Codelens key for range ${handler.range} not found`);
         }
@@ -160,7 +178,7 @@ connection.onDidCloseTextDocument((handler) => {
     connection.sendDiagnostics({ diagnostics: [], uri: handler.textDocument.uri });
 });
 
-connection.onRequest<CompilerResult, void>(LanguageServerRequest.Compile, (uri: Uri): Promise<CompilerResult> => {
+connection.onRequest<ICompilerResult, void>(LanguageServerRequest.Compile, (uri: Uri): Promise<ICompilerResult> => {
     if (provider && provider.compiler) {
         return provider.compiler.compile(uri);
     }

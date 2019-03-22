@@ -6,6 +6,7 @@ import { isPositionInString } from "./../strings/stringUtils";
 import { DocumentIterator } from "./documentIterator";
 import { translate } from "./positionHelper";
 import { ensureValidWordDefinition, getWordAtText, matchWordAtText } from "./wordHelper";
+
 export class DocumentDecorator {
 
     public documentLines: string[];
@@ -118,11 +119,13 @@ export class DocumentDecorator {
             openCount = 1;
             start = vscode.Position.create(iterator.lineIndex, iterator.charIndex + 1);
         } else {
+            console.warn("Could not read array, as the iterator start is an invalid position");
             return null;
         }
         while (openCount !== closedCount) {
             iterator.skipChar();
             if (!iterator.isValidPosition) {
+                console.warn(`Could not read array, as the iterator position ${iterator} is at an invalid position`);
                 return null;
             }
             if (iterator.currentChar === exprStartChar) {
@@ -136,6 +139,7 @@ export class DocumentDecorator {
                 return vscode.Range.create(start, end);
             }
         }
+        console.warn("Could not read array, as the end is an unknown position");
         return null;
     }
     public matchWordRangeAtPosition(rangePosition: vscode.Position, adjust: boolean = true): vscode.Range | undefined {
@@ -190,8 +194,11 @@ export class DocumentDecorator {
         return !!match && match.length > 0;
     }
 
-    public getFullyQualifiedNameOfCalledMethod(position: vscode.Position): string {
+    public getFullyQualifiedNameOfCalledMethod(position: vscode.Position): string | undefined {
         const wordRange = this.matchWordRangeAtPosition(position, false);
+        if (wordRange === undefined) {
+           return undefined;
+        }
         const call = this.getText(wordRange);
         return call;
     }
@@ -263,12 +270,15 @@ export class DocumentDecorator {
         return start;
     }
 
-    public findInsertionPointOfContract(memberStart: vscode.Position, lastDependentDeclaration: vscode.Position | null = null) {
+    public findInsertionPointOfContract(memberStart: vscode.Position, lastDependentDeclaration: vscode.Position | null = null): vscode.Position {
         const startOfTopLevelContracts = this.findBeginOfContractsOfMethod(memberStart);
+        if (startOfTopLevelContracts === null) {
+            throw new Error("Start of top level contracts could not be found");
+        }
         if (!lastDependentDeclaration) {
             return startOfTopLevelContracts;
         }
-        const iterator = new DocumentIterator(this, startOfTopLevelContracts || undefined);
+        const iterator = new DocumentIterator(this, startOfTopLevelContracts || undefined); // TODO: Does it make sense to pass a undefined value here or just stop?
         while (iterator.isInfrontOf(lastDependentDeclaration)) {
             iterator.skipChar();
             iterator.skipToChar("{");

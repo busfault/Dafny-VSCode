@@ -42,25 +42,21 @@ export class SymbolService {
             return Promise.resolve(symbolTables);
         }
     }
-    public getAllSymbols(document: TextDocument): Promise<DafnySymbol[]> {
-        return this.getSymbols(document, true).then((tables: SymbolTable[]) => {
-            return [].concat.apply([], tables.map((table: SymbolTable) => table.symbols));
-        });
+    public async getAllSymbols(document: TextDocument): Promise<DafnySymbol[]> {
+        const tables = await this.getSymbols(document, true);
+        return ([] as DafnySymbol[]).concat.apply([], tables.map((table: SymbolTable) => table.symbols));
     }
 
     public async getSymbolsFromDafny(document: TextDocument): Promise<SymbolTable> {
         if (!document) {
-            return Promise.resolve(null);
+            return Promise.reject("No document to create symbol table from.");
         }
         try {
-            const symbols = await new Promise<any>((resolve, reject) => {
-                return this.askDafnyForSymbols(resolve, reject, document);
-            });
-            return Promise.resolve(this.parseSymbols(symbols, document));
-        }
-        catch (err) {
+            const symbols = await this.askDafnyForSymbols(document);
+            return this.parseSymbols(symbols, document);
+        } catch (err) {
             console.error(err);
-            return Promise.resolve(null);
+            return Promise.reject(`Could not create Dafny symbol table (Error: ${err})`);
         }
     }
 
@@ -79,8 +75,7 @@ export class SymbolService {
             symb.hash = hashString(doc.getText());
             this.addSymbols(doc, symb, true);
             symbolTables.push(symb);
-        }
-        else if (symbols) {
+        } else if (symbols) {
             symbolTables.push(symbols);
         }
         return Promise.resolve(symbolTables);
@@ -131,13 +126,18 @@ export class SymbolService {
         }
         return parsedSymbol;
     }
-    private askDafnyForSymbols(resolve: any, reject: any, document: TextDocument) {
-        this.server.addDocument(document, DafnyVerbs.Symbols, (response: string) =>  {
-            this.handleProcessData(response, ((data) => {resolve(data); }));
-        }, () => {reject(null); });
+    private askDafnyForSymbols(document: TextDocument): Promise<any> {
+        return new Promise((resolve, reject) => {
+            this.server.addDocument(
+                document,
+                DafnyVerbs.Symbols,
+                (response: string) => this.handleProcessData(response, resolve),
+                () => reject(`Error while requesting symbols from dafny for document "${document.uri}"`),
+            );
+        });
     }
 
-    private handleProcessData(response: string, callback: (data: any) => any): void {
+    private handleProcessData(response: string, callback: (data: any) => void): void {
         if (response && response.indexOf(EnvironmentConfig.DafnySuccess) > 0
                 && response.indexOf(EnvironmentConfig.DafnyFailure) < 0 && response.indexOf(EnvironmentConfig.SymbolStart) > -1) {
             const startOfSymbols: number = response.indexOf(EnvironmentConfig.SymbolStart) + EnvironmentConfig.SymbolStart.length;

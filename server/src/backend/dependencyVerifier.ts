@@ -7,66 +7,61 @@ import { Command } from "./Command";
 import { IDafnySettings } from "./dafnySettings";
 import { Environment } from "./environment";
 
+const VERSION_STRING = "VERSION:";
+
+// TODO: This file should be reimplemented and the dafny process / parsing abstracted cleanly.
 export class DependencyVerifier {
 
-    private version = "VERSION:";
-
-    private serverProc: ProcessWrapper;
-    private callbackSuccess: (serverVersion: string) => any;
-    private callbackError: (error: any) => any;
-    private serverVersion: string;
-
-    public verifyDafnyServer(rootPath: string, notificationService: NotificationService, dafnySettings: IDafnySettings,
-                             callbackSuccess: (serverVersion: string) => any, callbackError: (error: any) => any) {
+    public static verifyDafnyServer(
+        rootPath: string,
+        notificationService: NotificationService,
+        dafnySettings: IDafnySettings): Promise<string> {
         const environment: Environment = new Environment(rootPath, notificationService, dafnySettings);
         const spawnOptions = environment.getStandardSpawnOptions();
-        const dafnyCommand: Command = environment.getStartDafnyCommand();
-        this.callbackError = callbackError;
-        this.callbackSuccess = callbackSuccess;
+        const command = environment.getStartDafnyCommand();
 
-        this.verify(dafnyCommand, spawnOptions);
+        return new Promise((resolve, reject) => {
+            const serverProc = DependencyVerifier.spawnNewProcess(command, spawnOptions, resolve, reject);
+            serverProc.sendRequestToDafnyServer("", "version");
+        });
     }
 
-    private verify(command: Command, spawnOptions: cp.SpawnOptions): void {
-        try {
-            this.serverProc = this.spawnNewProcess(command, spawnOptions);
-            this.serverProc.sendRequestToDafnyServer("", "version");
-        } catch (e) {
-            this.callbackError(e);
+    private static parseVersion(outBuf: string): string | undefined {
+        if (outBuf.indexOf(VERSION_STRING) > -1) {
+            const start = outBuf.indexOf(VERSION_STRING);
+            const end = outBuf.indexOf("\n", start);
+            return outBuf.substring(start + VERSION_STRING.length, end);
         }
+        return undefined;
     }
 
-    private spawnNewProcess(dafnyCommand: Command, options: cp.SpawnOptions): ProcessWrapper {
+    private static spawnNewProcess(
+        dafnyCommand: Command,
+        options: cp.SpawnOptions,
+        resolve: (value?: string | PromiseLike<string> | undefined) => void,
+        reject: (reason?: any) => void,
+    ): ProcessWrapper {
         const process = cp.spawn(dafnyCommand.command, dafnyCommand.args, options);
-        process.on("error", (e) => { this.callbackError(e); });
-        process.on("exit", (e) => { this.handleProcessExit(e); });
-        process.stdin.on("error", (e) => { this.callbackError(e); });
+        process.on("error", (e) => reject(e));
+        process.stdin.on("error", (e) => reject(e));
 
-        return new ProcessWrapper(process,
-            (err: Error) => { this.callbackError(err); },
+        const processWrapper = new ProcessWrapper(process,
+            (err: Error) => reject(err),
             () => {
-                try {
-                    if (this.serverProc.outBuf.indexOf(this.version) > -1) {
-                        const start = this.serverProc.outBuf.indexOf(this.version);
-                        const end = this.serverProc.outBuf.indexOf("\n", start);
-                        this.serverVersion = this.serverProc.outBuf.substring(start + this.version.length, end);
-                        this.serverProc.sendQuit();
-                    }
-                } catch (e) {
-                    this.callbackError(e);
+                const versionString = DependencyVerifier.parseVersion(processWrapper.outBuf);
+                if (versionString) {
+                    processWrapper.sendQuit();
+                    resolve(versionString);
                 }
             },
             (code: number) => {
                 console.log(`The verifyer process ended with code ${code}`);
+                if (code !== 0) {
+                    reject(code);
+                }
             },
         );
-    }
 
-    private handleProcessExit(code: number) {
-        if (code !== 0) {
-            this.callbackError(code);
-        } else {
-            this.callbackSuccess(this.serverVersion);
-        }
+        return processWrapper;
     }
 }

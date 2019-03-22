@@ -12,7 +12,7 @@ export class DafnyCompletionProvider {
         const document =  this.server.symbolService.getTextDocument(handler.textDocument.uri);
         const word = this.parseWordForCompletion(document, handler.position);
         const allSymbols = await this.server.symbolService.getAllSymbols(document);
-        const definition = allSymbols.find(e => e.isDefinitionFor(word));
+        const definition = allSymbols.find((e) => e.isDefinitionFor(word));
 
         if (definition) {
             return this.provideExactCompletions(allSymbols, definition);
@@ -28,7 +28,7 @@ export class DafnyCompletionProvider {
 
     private provideBestEffortCompletion(symbols: DafnySymbol[], word: string): CompletionItem[] {
         const fields: DafnySymbol[] = symbols.filter((e: DafnySymbol) => e.isField(word));
-        const definingClass: DafnySymbol = this.findDefiningClassForField(symbols, fields);
+        const definingClass = this.findDefiningClassForField(symbols, fields);
         if (definingClass) {
             const possibleSymbolForCompletion: DafnySymbol[] = symbols.filter(
                 (symbol: DafnySymbol) => symbol.canProvideCodeCompletionForClass(definingClass));
@@ -37,7 +37,7 @@ export class DafnyCompletionProvider {
         return [];
     }
 
-    private findDefiningClassForField(symbols: DafnySymbol[], fields: DafnySymbol[]): DafnySymbol {
+    private findDefiningClassForField(symbols: DafnySymbol[], fields: DafnySymbol[]): DafnySymbol | undefined {
         return symbols.find((e: DafnySymbol) => {
             for (const field of fields) {
                 if (e.isDefiningClassForFieldType(field)) {

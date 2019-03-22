@@ -28,9 +28,7 @@ export class DafnyServerProvider {
 
     constructor(public notificationService: NotificationService, serverVersion: string, rootPath: string, settings: IDafnySettings) {
 
-        this.context = new Context(this.notificationService);
-        this.context.serverversion = serverVersion;
-        this.context.rootPath = rootPath;
+        this.context = new Context(this.notificationService, serverVersion, rootPath);
         this.dafnyStatusbar = new Statusbar(this.notificationService);
         this.dafnyServer = new DafnyServer(this.notificationService, this.dafnyStatusbar, this.context, settings);
 

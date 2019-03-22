@@ -1,5 +1,7 @@
 "use strict";
 
+import { IWordAtPosition } from "./IWordAtPosition";
+
 export const USUAL_WORD_SEPARATORS = '`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
 
 /**
@@ -47,7 +49,7 @@ export function ensureValidWordDefinition(wordDefinition?: RegExp): RegExp {
     return result;
 }
 
-function getWordAtPosFast(column: number, wordDefinition: RegExp, text: string, textOffset: number): WordAtPosition | null {
+function getWordAtPosFast(column: number, wordDefinition: RegExp, text: string, textOffset: number): IWordAtPosition | null {
     // find whitespace enclosed text around column and match from there
 
     if (wordDefinition.test(" ")) {
@@ -77,7 +79,7 @@ function getWordAtPosFast(column: number, wordDefinition: RegExp, text: string, 
     return null;
 }
 
-function getWordAtPosSlow(column: number, wordDefinition: RegExp, text: string, textOffset: number): WordAtPosition | null {
+function getWordAtPosSlow(column: number, wordDefinition: RegExp, text: string, textOffset: number): IWordAtPosition | null {
     // matches all words starting at the beginning
     // of the input until it finds a match that encloses
     // the desired column. slow but correct
@@ -105,7 +107,7 @@ function getWordAtPosSlow(column: number, wordDefinition: RegExp, text: string, 
     return null;
 }
 
-export function matchWordAtText(column: number, text: string, textOffset: number): WordAtPosition {
+export function matchWordAtText(column: number, text: string, textOffset: number): IWordAtPosition {
     const pos = column - 1 - textOffset;
     const endStrings: string[] = [" ", "(", ")", "}", "{", ":"];
     const possibleStarts = endStrings.map((e: string) => text.lastIndexOf(e, pos - 1) + 1).filter((e: number) => e !== -1);
@@ -125,17 +127,11 @@ export function matchWordAtText(column: number, text: string, textOffset: number
 
 }
 
-export function getWordAtText(column: number, wordDefinition: RegExp, text: string, textOffset: number): WordAtPosition | null {
+export function getWordAtText(column: number, wordDefinition: RegExp, text: string, textOffset: number): IWordAtPosition | null {
     const result = getWordAtPosFast(column, wordDefinition, text, textOffset);
     // both (getWordAtPosFast and getWordAtPosSlow) leave the wordDefinition-RegExp
     // in an undefined state and to not confuse other users of the wordDefinition
     // we reset the lastIndex
     wordDefinition.lastIndex = 0;
     return result;
-}
-
-export interface WordAtPosition {
-    word: string;
-    startColumn: number;
-    endColumn: number;
 }
