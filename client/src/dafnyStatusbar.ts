@@ -3,9 +3,9 @@ import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient";
 
 import { Context } from "./context";
+import { IVerificationResult } from "./IVerificationResult";
 import { StatusbarPriority } from "./StatusbarPriority";
 import { EnvironmentConfig, LanguageServerNotification, StatusString } from "./stringRessources";
-import { VerificationResult } from "./verificationResult";
 
 export class Statusbar {
     public serverStatus: string | undefined;
@@ -99,7 +99,7 @@ export class Statusbar {
         } else if (this.queueContains(editor.document.uri.toString())) {
             this.currentDocumentStatucBar.text = StatusString.Queued;
         } else {
-            const res: undefined | VerificationResult = this.context.verificationResults[editor.document.uri.toString()];
+            const res: undefined | IVerificationResult = this.context.verificationResults[editor.document.uri.toString()];
             if (res !== undefined) {
                 const displayText: string = this.verificationResultToString(res);
                 this.currentDocumentStatucBar.text = displayText;
@@ -112,7 +112,7 @@ export class Statusbar {
         this.currentDocumentStatucBar.show();
     }
 
-    private verificationResultToString(result: VerificationResult): string {
+    private verificationResultToString(result: IVerificationResult): string {
         let response: string = "";
 
         if (result.crashed) {

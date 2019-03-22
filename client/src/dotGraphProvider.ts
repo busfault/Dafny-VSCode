@@ -16,7 +16,7 @@ export class DotGraphProvider implements vscode.TextDocumentContentProvider {
     public provideTextDocumentContent(_: vscode.Uri): Thenable<string> {
         return new Promise((resolve, reject) => {
             const editor = vscode.window.activeTextEditor;
-            if(!editor) {
+            if (!editor) {
                 return reject("No open Editor Window to provide Text Document Content");
             }
             const textDocument = editor.document;

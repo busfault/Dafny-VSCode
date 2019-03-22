@@ -6,8 +6,8 @@ import { Context } from "./context";
 import { CounterModelProvider } from "./counterModelProvider";
 import { Statusbar } from "./dafnyStatusbar";
 import { DotGraphProvider } from "./dotGraphProvider";
+import { IVerificationResult } from "./IVerificationResult";
 import { CommandStrings, Config, EnvironmentConfig, LanguageServerNotification } from "./stringRessources";
-import { VerificationResult } from "./verificationResult";
 
 export class DafnyClientProvider {
     public dafnyStatusbar: Statusbar;
@@ -32,7 +32,7 @@ export class DafnyClientProvider {
         languageServer.onNotification(LanguageServerNotification.VerificationResult,
             (docPathName: string, json: string) => {
                 this.context.localQueue.remove(docPathName);
-                const verificationResult: VerificationResult = JSON.parse(json);
+                const verificationResult: IVerificationResult = JSON.parse(json);
                 this.context.verificationResults[docPathName] = verificationResult;
                 this.dafnyStatusbar.update();
                 this.counterModelProvider.update();
@@ -67,14 +67,14 @@ export class DafnyClientProvider {
 
         vscode.commands.registerCommand(CommandStrings.ShowCounterExample, () => {
             const editor = vscode.window.activeTextEditor;
-            if(editor) {
+            if (editor) {
                 this.doCounterModel(editor.document);
             }
         });
 
         vscode.commands.registerCommand(CommandStrings.HideCounterExample, () => {
             const editor = vscode.window.activeTextEditor;
-            if(editor) {
+            if (editor) {
                 this.hideCounterModel(editor.document);
             }
         });

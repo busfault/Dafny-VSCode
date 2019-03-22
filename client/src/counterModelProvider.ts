@@ -2,7 +2,7 @@
 
 import * as vscode from "vscode";
 import { Context } from "./context";
-import { VerificationResult } from "./verificationResult";
+import { IVerificationResult } from "./IVerificationResult";
 
 export class CounterModelProvider {
 
@@ -12,7 +12,7 @@ export class CounterModelProvider {
         // TODO: Refactor editor window out and check for existance
         const editor: vscode.TextEditor = vscode.window.activeTextEditor!;
 
-        const res: undefined | VerificationResult = this.context.verificationResults[editor.document.uri.toString()];
+        const res: undefined | IVerificationResult = this.context.verificationResults[editor.document.uri.toString()];
 
         if (res !== undefined && res.counterModel && res.counterModel.States) {
             if (this.context.decorators[editor.document.uri.toString()]) {

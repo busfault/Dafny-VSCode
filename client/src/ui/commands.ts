@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient";
 import { DafnyClientProvider } from "../dafnyProvider";
 import { DafnyRunner } from "../dafnyRunner";
-import { CompilerResult } from "../serverHelper/compilerResult";
+import { ICompilerResult } from "../serverHelper/ICompilerResult";
 import { CommandStrings, Config, EnvironmentConfig, ErrorMsg, InfoMsg, LanguageServerRequest } from "../stringRessources";
 
 /**
@@ -38,6 +38,8 @@ export default class Commands {
     public languageServer: LanguageClient;
     public provider: DafnyClientProvider;
     public runner: DafnyRunner;
+
+    // tslint:disable: object-literal-sort-keys
     public commands = [
         {name: CommandStrings.ShowReferences, callback: Commands.showReferences, doNotDispose: true},
         {name: CommandStrings.RestartServer,  callback: () => this.restartServer()},
@@ -46,16 +48,20 @@ export default class Commands {
         {
             name: CommandStrings.Compile,
             callback: () => {
-                if(!vscode.window.activeTextEditor) return; // The window was closed before compilation was executed
+                if (!vscode.window.activeTextEditor) {
+                    return; // The window was closed before compilation was executed
+                }
                 return this.compile(vscode.window.activeTextEditor.document);
-            }
+            },
         },
         {
             name: CommandStrings.CompileAndRun,
             callback: () => {
-                if(!vscode.window.activeTextEditor) return; // The window was closed before compilation was executed
+                if (!vscode.window.activeTextEditor) {
+                    return; // The window was closed before compilation was executed
+                }
                 this.compile(vscode.window.activeTextEditor.document, true);
-            }
+            },
         },
         {
             name: CommandStrings.EditText,
@@ -121,14 +127,14 @@ export default class Commands {
     }
 
     public compile(document: vscode.TextDocument | undefined, run: boolean = false): void {
-        if(!document) {
+        if (!document) {
             return; // Skip if user closed everything in the meantime
         }
         document.save();
         vscode.window.showInformationMessage(InfoMsg.CompilationStarted);
 
-        this.languageServer.sendRequest<CompilerResult>(LanguageServerRequest.Compile, document.uri)
-        .then(result => {
+        this.languageServer.sendRequest<ICompilerResult>(LanguageServerRequest.Compile, document.uri)
+        .then((result) => {
             vscode.window.showInformationMessage(InfoMsg.CompilationFinished);
             if (run && result.executable) {
                 this.runner.run(document.fileName);

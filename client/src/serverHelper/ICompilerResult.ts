@@ -1,6 +1,4 @@
-"use strict";
-
-export interface CompilerResult {
+export interface ICompilerResult {
     error: boolean;
     message?: string;
     executable?: boolean;
